@@ -1,0 +1,22 @@
+# The name of your plugin as displayed in the Plugins Catalog web UI.
+displayName: Rate Limit
+
+# For now, `middleware` is the only type available.
+type: middleware
+
+# The import path of your plugin.
+import: github.com/ghnexpress/traefik-ratelimit
+
+# A brief description of what your plugin is doing.
+summary: Rate Limit by ip
+
+# Medias associated to the plugin (optional)
+iconPath:  .assets/icon.png
+
+compatibility: TODO
+
+# Configuration data for your plugin.
+# This is mandatory,
+# and Plugins Catalog will try to execute the plugin with the data you provide as part of its startup validity tests.
+testData:
+  rate: 100
