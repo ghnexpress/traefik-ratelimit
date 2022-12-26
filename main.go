@@ -2,11 +2,15 @@ package traefik_ratelimit
 
 import (
 	"context"
-	"fmt"
+	"github.com/ghnexpress/traefik-ratelimit/sliding_window_counter"
 	"net/http"
 
 	"github.com/hoisie/redis"
 )
+
+type RateLimiter interface {
+	IsAllowed(ctx context.Context, req *http.Request) bool
+}
 
 var redisClient *redis.Client
 
@@ -18,9 +22,10 @@ type RedisConfig struct {
 
 // Config holds the plugin configuration.
 type Config struct {
-	Rate        int         `json:"rate,omitempty"`
-	Redis       RedisConfig `json:"redis,omitempty"`
-	RedisClient redis.Client
+	MaxRequestInWindow int         `json:"max_request_in_window,omitempty"`
+	WindowTime         int         `json:"window_time,omitempty"`
+	Redis              RedisConfig `json:"redis,omitempty"`
+	RedisClient        redis.Client
 }
 
 // CreateConfig creates and initializes the plugin configuration.
@@ -29,10 +34,10 @@ func CreateConfig() *Config {
 }
 
 type RateLimit struct {
-	name  string
-	next  http.Handler
-	rate  int
-	redis redis.Client
+	name        string
+	next        http.Handler
+	rate        int
+	rateLimiter RateLimiter
 }
 
 func getRedisClient(config RedisConfig) redis.Client {
@@ -50,19 +55,17 @@ func getRedisClient(config RedisConfig) redis.Client {
 
 // New created a new plugin.
 func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
+	//redisInstance := getRedisClient(config.Redis)
+	rateLimiter := sliding_window_counter.NewSlidingWindowCounter()
 	return &RateLimit{
-		name:  name,
-		next:  next,
-		rate:  config.Rate,
-		redis: getRedisClient(config.Redis),
+		name:        name,
+		next:        next,
+		rateLimiter: rateLimiter,
 	}, nil
 }
 
 func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	key := req.RemoteAddr
-	val, _ := r.redis.Incr(key)
-	req.Header.Set("Count", fmt.Sprintf("%d", val))
-	req.Header.Set("Rate", fmt.Sprintf("%d", r.rate))
-	req.Header.Set("Version", "v1.0.0")
-	r.next.ServeHTTP(rw, req)
+	if r.rateLimiter.IsAllowed(req.Context(), req) {
+		r.next.ServeHTTP(rw, req)
+	}
 }
