@@ -2,30 +2,27 @@ package traefik_ratelimit
 
 import (
 	"context"
+	"github.com/bradfitz/gomemcache/memcache"
+	_ "github.com/bradfitz/gomemcache/memcache"
+	slidingWindowCounterRepo "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter"
 	"github.com/ghnexpress/traefik-ratelimit/sliding_window_counter"
 	"net/http"
-
-	"github.com/hoisie/redis"
 )
 
 type RateLimiter interface {
 	IsAllowed(ctx context.Context, req *http.Request) bool
 }
 
-var redisClient *redis.Client
-
-// Redis config.
-type RedisConfig struct {
+type MemcachedConfig struct {
 	Address  string `json:"address,omitempty"`
 	Password string `json:"password,omitempty"`
 }
 
 // Config holds the plugin configuration.
 type Config struct {
-	MaxRequestInWindow int         `json:"max_request_in_window,omitempty"`
-	WindowTime         int         `json:"window_time,omitempty"`
-	Redis              RedisConfig `json:"redis,omitempty"`
-	RedisClient        redis.Client
+	MaxRequestInWindow int             `json:"max_request_in_window,omitempty"`
+	WindowTime         int             `json:"window_time,omitempty"`
+	MemcachedConfig    MemcachedConfig `json:"memcached_config"`
 }
 
 // CreateConfig creates and initializes the plugin configuration.
@@ -40,23 +37,17 @@ type RateLimit struct {
 	rateLimiter RateLimiter
 }
 
-func getRedisClient(config RedisConfig) redis.Client {
-	if redisClient == nil {
-		redisClient = &redis.Client{
-			Addr:        config.Address,
-			Db:          0,
-			Password:    config.Password,
-			MaxPoolSize: 0,
-		}
-	}
-
-	return *redisClient
-}
-
 // New created a new plugin.
 func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	//redisInstance := getRedisClient(config.Redis)
-	rateLimiter := sliding_window_counter.NewSlidingWindowCounter()
+	memcacheInstance := memcache.New(config.MemcachedConfig.Address)
+	slidingWindowCounterRepository := slidingWindowCounterRepo.NewSlidingWindowCounterRepository(memcacheInstance)
+	rateLimiter := sliding_window_counter.NewSlidingWindowCounter(
+		slidingWindowCounterRepository,
+		sliding_window_counter.SlidingWindowCounterParam{
+			MaxRequestInWindow: config.MaxRequestInWindow,
+			WindowTime:         config.WindowTime,
+		},
+	)
 	return &RateLimit{
 		name:        name,
 		next:        next,
