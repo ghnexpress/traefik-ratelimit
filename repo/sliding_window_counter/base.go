@@ -1,14 +1,22 @@
 package sliding_window_counter
 
 import (
+	"context"
 	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/ghnexpress/traefik-ratelimit/sliding_window_counter"
 )
 
-type repository struct {
-	memory *memcache.Client
+type Repository interface {
+	GetRequestCountByIP(ctx context.Context, ip string) (map[int]int, error)
+	IncreaseCurrentWindowSlice(ctx context.Context, key string, part int) error
+	GetAllRequestCountCurrentWindow(ctx context.Context, key string) (int, error)
+	AddNewIP(ctx context.Context, ip string) error
+	RemoveExpiredWindowSlice(ctx context.Context, key string, currSlice, windowTime int) error
 }
 
-func NewSlidingWindowCounterRepository(memory *memcache.Client) sliding_window_counter.Repository {
-	return &repository{memory: memory}
+type repository struct {
+	Memory *memcache.Client
+}
+
+func NewSlidingWindowCounterRepository(memory *memcache.Client) Repository {
+	return &repository{Memory: memory}
 }

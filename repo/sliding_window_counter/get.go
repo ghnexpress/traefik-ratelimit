@@ -8,7 +8,7 @@ import (
 
 func (r *repository) GetRequestCountByIP(ctx context.Context, ip string) (requestCountPerIP map[int]int, err error) {
 	var data *memcache.Item
-	if data, err = r.memory.Get(ip); err != nil {
+	if data, err = r.Memory.Get(ip); err != nil {
 		return nil, err
 	}
 	err = json.Unmarshal(data.Value, &requestCountPerIP)

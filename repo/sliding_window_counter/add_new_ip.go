@@ -8,7 +8,7 @@ import (
 
 func (r *repository) AddNewIP(ctx context.Context, ip string) error {
 	body, _ := json.Marshal(map[int]int{})
-	return r.memory.Set(&memcache.Item{
+	return r.Memory.Set(&memcache.Item{
 		Key:   ip,
 		Value: body,
 	})

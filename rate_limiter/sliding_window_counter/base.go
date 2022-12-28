@@ -2,7 +2,8 @@ package sliding_window_counter
 
 import (
 	"context"
-	traefik_ratelimit "github.com/ghnexpress/traefik-ratelimit"
+	"github.com/ghnexpress/traefik-ratelimit/rate_limiter"
+	slidingWindowCounterRepo "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter"
 	"github.com/ghnexpress/traefik-ratelimit/utils"
 	"math"
 	"net"
@@ -37,11 +38,11 @@ type SlidingWindowCounterParam struct {
 }
 
 type slidingWindowCounter struct {
-	repo   Repository
+	repo   slidingWindowCounterRepo.Repository
 	params SlidingWindowCounterParam
 }
 
-func NewSlidingWindowCounter(repo Repository, params SlidingWindowCounterParam) traefik_ratelimit.RateLimiter {
+func NewSlidingWindowCounter(repo slidingWindowCounterRepo.Repository, params SlidingWindowCounterParam) rate_limiter.RateLimiter {
 	return &slidingWindowCounter{repo: repo, params: params}
 }
 
@@ -54,7 +55,7 @@ func (s *slidingWindowCounter) getCurrentPart() int {
 }
 
 func (s *slidingWindowCounter) isIPExist(ctx context.Context, ip string) bool {
-	_, err := s.repo.Get(ctx, ip)
+	_, err := s.repo.GetRequestCountByIP(ctx, ip)
 	if err != nil {
 		return false
 	}
@@ -68,7 +69,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	go func() {
 		w.Add(1)
 		defer w.Done()
-		if err := s.repo.RemoveExpiredWindowSlice(ctx, ip, part); err != nil {
+		if err := s.repo.RemoveExpiredWindowSlice(ctx, ip, part, s.params.WindowTime); err != nil {
 			utils.ShowErrorLogs(err)
 			errChan <- err
 		}
