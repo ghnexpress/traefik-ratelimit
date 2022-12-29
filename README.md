@@ -23,7 +23,7 @@ The source code of the plugin should be organized as follows:
 
 ```yaml
 # docker-compose.yml
-version: "3.8"
+version: "3.6"
 
 services:
   memcached:
@@ -34,7 +34,7 @@ services:
     networks:
       - traefik-network
   traefik:
-    image: traefik:v2.9.1
+    image: traefik:v2.9.6
     container_name: traefik
     depends_on:
       - memcached
@@ -46,7 +46,7 @@ services:
       - --api.insecure=true
       - --providers.docker=true
       - --entrypoints.web.address=:80
-      - --experimental.localPlugins.plugindemo.moduleName=github.com/ghnexpress/traefik-ratelimit
+      - --experimental.localPlugins.ratelimit.moduleName=github.com/ghnexpress/traefik-ratelimit
     ports:
       - "80:80"
       - "8080:8080"
@@ -56,9 +56,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./plugins-local/src/github.com/ghnexpress/traefik-ratelimit:/plugins-local/src/github.com/ghnexpress/traefik-ratelimit
     labels:
-      - traefik.http.middlewares.my-plugindemo.plugin.plugindemo.memcachedConfig.address=some-memcached:11211
-      - traefik.http.middlewares.my-plugindemo.plugin.plugindemo.windowTime=100
-      - traefik.http.middlewares.my-plugindemo.plugin.plugindemo.maxRequestInWindow=100
+      - traefik.http.middlewares.rate-limit.plugin.ratelimit.memcachedConfig.address=some-memcached:11211
+      - traefik.http.middlewares.rate-limit.plugin.ratelimit.windowTime=100
+      - traefik.http.middlewares.rate-limit.plugin.ratelimit.maxRequestInWindow=10
   whoami:
     image: traefik/whoami
     container_name: simple-service
@@ -70,7 +70,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.whoami.rule=Host(`localhost`)
       - traefik.http.routers.whoami.entrypoints=web
-      - traefik.http.routers.whoami.middlewares=my-plugindemo
+      - traefik.http.routers.whoami.middlewares=rate-limit
 networks:
   traefik-network:
     driver: bridge
