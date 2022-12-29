@@ -5,6 +5,6 @@ import (
 	"os"
 )
 
-func Log(text string) {
-	os.Stdout.WriteString(fmt.Sprintf("rate-limit-middleware-plugin] %s\n", text))
+func Log(args ...any) {
+	os.Stdout.WriteString(fmt.Sprintf("[rate-limit-middleware-plugin] %s\n", fmt.Sprint(args)))
 }

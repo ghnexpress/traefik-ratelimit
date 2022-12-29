@@ -42,7 +42,7 @@ func (r *repository) RemoveExpiredWindowSlice(ctx context.Context, ip string, cu
 			}
 			return err
 		}
-
+		break
 	}
 
 	return err

@@ -30,6 +30,7 @@ func (r *repository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, 
 			}
 			return err
 		}
+		break
 	}
 	return err
 }
