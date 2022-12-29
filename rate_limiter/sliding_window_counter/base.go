@@ -65,7 +65,12 @@ func (s *slidingWindowCounter) isIPExist(ctx context.Context, ip string) bool {
 }
 
 func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Context, ip string, part int) (cumulativeReq int, err error) {
-	//errChan := make(chan error, 2)
+	defer func() {
+		if err := recover(); err != nil {
+			log.Log(err)
+		}
+	}()
+	errChan := make(chan error, 2)
 	w := sync.WaitGroup{}
 	w.Add(2)
 	go func() {
@@ -73,7 +78,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 		log.Log("remove expired window start")
 		if err := s.repo.RemoveExpiredWindowSlice(ctx, ip, part, s.params.WindowTime); err != nil {
 			utils.ShowErrorLogs(err)
-			//errChan <- err
+			errChan <- err
 		}
 		log.Log("remove expired window end")
 	}()
@@ -83,18 +88,22 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 		log.Log("increase current window slice start")
 		if err := s.repo.IncreaseCurrentWindowSlice(ctx, ip, part); err != nil {
 			utils.ShowErrorLogs(err)
-			//errChan <- err
+			errChan <- err
 		}
 		log.Log("increase current window slice end")
 	}()
 
 	w.Wait()
 	log.Log("close err chan")
-	//close(errChan)
+	close(errChan)
 	log.Log("close err chan done")
-	//if err = <-errChan; err != nil {
-	//	return 0, err
-	//}
+	// 2 lines below are important, if change this to below code can lead to panic
+	// if err = <-errChan; err != nil {
+	//		return 0, err
+	//	}
+	if err := <-errChan; err != nil {
+		return 0, err
+	}
 	log.Log("get all request count start")
 	cumulativeReq, err = s.repo.GetAllRequestCountCurrentWindow(ctx, ip)
 	log.Log("all request ", cumulativeReq, err)
@@ -102,6 +111,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 		return 0, err
 	}
 	log.Log("get all request count done")
+
 	return cumulativeReq, err
 }
 
