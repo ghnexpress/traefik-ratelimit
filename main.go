@@ -2,6 +2,7 @@ package traefik_ratelimit
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/ghnexpress/traefik-ratelimit/log"
@@ -59,9 +60,11 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 }
 
 func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	encoder := json.NewEncoder(rw)
 	if r.rateLimiter.IsAllowed(req.Context(), req) {
 		r.next.ServeHTTP(rw, req)
 	} else {
-		http.Error(rw, fmt.Sprintf("rate limit exceeded, try again in %d seconds", r.config.WindowTime), http.StatusTooManyRequests)
+		rw.WriteHeader(http.StatusTooManyRequests)
+		encoder.Encode(map[string]any{"status_code": http.StatusTooManyRequests, "message": "rate limit exceeded, try again later"})
 	}
 }

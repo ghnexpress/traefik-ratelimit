@@ -2,7 +2,6 @@ package sliding_window_counter
 
 import (
 	"context"
-	"fmt"
 	"github.com/ghnexpress/traefik-ratelimit/log"
 )
 
@@ -18,5 +17,5 @@ func (r *repository) GetAllRequestCountCurrentWindow(ctx context.Context, ip str
 		sumAllRequest += requestCount
 	}
 	log.Log("sum of all req ", sumAllRequest)
-	return sumAllRequest, fmt.Errorf("test th")
+	return sumAllRequest, nil
 }
