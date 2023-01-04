@@ -1,4 +1,4 @@
-package sliding_window_counter
+package memcached
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 	"github.com/ghnexpress/traefik-ratelimit/log"
 )
 
-func (r *repository) AddNewIP(ctx context.Context, ip string) error {
+func (r *memcachedRepository) AddNewIP(ctx context.Context, ip string) error {
 	body, err := json.Marshal(map[int]int{})
 	if err != nil {
 		return err
 	}
 	log.Log(body)
-	return r.Memory.Set(&memcache.Item{
+	return r.Memcached.Set(&memcache.Item{
 		Key:   ip,
 		Value: body,
 	})

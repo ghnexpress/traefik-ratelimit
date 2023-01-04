@@ -1,4 +1,4 @@
-package sliding_window_counter
+package memcached
 
 import (
 	"context"
@@ -6,12 +6,12 @@ import (
 	"github.com/bradfitz/gomemcache/memcache"
 )
 
-func (r *repository) RemoveExpiredWindowSlice(ctx context.Context, ip string, currSlice, windowTime int) (err error) {
+func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip string, currSlice, windowTime int) (err error) {
 	var data *memcache.Item
 	allReqCount := make(map[int]int, 0)
 
 	for i := 0; i < MaxRetries; i++ {
-		if data, err = r.Memory.Get(ip); err != nil {
+		if data, err = r.Memcached.Get(ip); err != nil {
 			return err
 		}
 
@@ -36,7 +36,7 @@ func (r *repository) RemoveExpiredWindowSlice(ctx context.Context, ip string, cu
 			return err
 		}
 
-		if err = r.Memory.CompareAndSwap(data); err != nil {
+		if err = r.Memcached.CompareAndSwap(data); err != nil {
 			if err == memcache.ErrCASConflict {
 				continue
 			}

@@ -2,6 +2,7 @@ package sliding_window_counter
 
 import (
 	"context"
+	"fmt"
 	"github.com/ghnexpress/traefik-ratelimit/log"
 	"github.com/ghnexpress/traefik-ratelimit/rate_limiter"
 	slidingWindowCounterRepo "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter"
@@ -77,7 +78,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 		defer w.Done()
 		log.Log("remove expired window start")
 		if err := s.repo.RemoveExpiredWindowSlice(ctx, ip, part, s.params.WindowTime); err != nil {
-			utils.ShowErrorLogs(err)
+			utils.ShowErrorLogs(fmt.Errorf("remove expired window err %v", err))
 			errChan <- err
 		}
 		log.Log("remove expired window end")
@@ -87,7 +88,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 		defer w.Done()
 		log.Log("increase current window slice start")
 		if err := s.repo.IncreaseCurrentWindowSlice(ctx, ip, part); err != nil {
-			utils.ShowErrorLogs(err)
+			utils.ShowErrorLogs(fmt.Errorf("increase current window slice err %v", err))
 			errChan <- err
 		}
 		log.Log("increase current window slice end")
@@ -106,16 +107,19 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	}
 	log.Log("get all request count start")
 	cumulativeReq, err = s.repo.GetAllRequestCountCurrentWindow(ctx, ip)
-	log.Log("all request ", cumulativeReq, err)
+	log.Log("all request cumulative", cumulativeReq, err)
 	if err != nil {
 		return 0, err
 	}
-	log.Log("get all request count done")
-
 	return cumulativeReq, err
 }
 
 func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request) bool {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Log(err)
+		}
+	}()
 	reqIP := getIp(req)
 	if !s.isIPExist(ctx, reqIP) {
 		if err := s.repo.AddNewIP(ctx, reqIP); err != nil {
@@ -127,11 +131,11 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 	currPart := s.getCurrentPart()
 	log.Log("current part ", currPart)
 	cumulativeReq, err := s.increaseAndGetTotalRequestInWindow(ctx, reqIP, currPart)
-	log.Log("done increase and get total request in window")
 	if err != nil {
 		utils.ShowErrorLogs(err)
 		return false
 	}
+	log.Log("done increase and get total request in window")
 	if cumulativeReq > s.params.MaxRequestInWindow {
 		return false
 	}

@@ -1,4 +1,4 @@
-package sliding_window_counter
+package memcached
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"github.com/bradfitz/gomemcache/memcache"
 )
 
-func (r *repository) GetRequestCountByIP(ctx context.Context, ip string) (requestCountPerIP map[int]int, err error) {
+func (r *memcachedRepository) GetRequestCountByIP(ctx context.Context, ip string) (requestCountPerIP map[int]int, err error) {
 	var data *memcache.Item
-	if data, err = r.Memory.Get(ip); err != nil {
+	if data, err = r.Memcached.Get(ip); err != nil {
 		return nil, err
 	}
 	err = json.Unmarshal(data.Value, &requestCountPerIP)

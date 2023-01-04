@@ -1,4 +1,4 @@
-package sliding_window_counter
+package memcached
 
 import (
 	"context"
@@ -10,9 +10,9 @@ const (
 	MaxRetries = 10
 )
 
-func (r *repository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
+func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
 	for i := 0; i < MaxRetries; i++ {
-		data, err := r.Memory.Get(ip)
+		data, err := r.Memcached.Get(ip)
 		if err != nil {
 			return err
 		}
@@ -24,7 +24,7 @@ func (r *repository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, 
 		if data.Value, err = json.Marshal(userRequestCount); err != nil {
 			return err
 		}
-		if err = r.Memory.CompareAndSwap(data); err != nil {
+		if err = r.Memcached.CompareAndSwap(data); err != nil {
 			if err == memcache.ErrCASConflict {
 				continue
 			}
