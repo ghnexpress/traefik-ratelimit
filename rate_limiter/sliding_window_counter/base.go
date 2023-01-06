@@ -3,16 +3,16 @@ package sliding_window_counter
 import (
 	"context"
 	"fmt"
-	"github.com/ghnexpress/traefik-ratelimit/log"
-	"github.com/ghnexpress/traefik-ratelimit/rate_limiter"
-	slidingWindowCounterRepo "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter"
-	"github.com/ghnexpress/traefik-ratelimit/utils"
 	"math"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ghnexpress/traefik-ratelimit/log"
+	"github.com/ghnexpress/traefik-ratelimit/rate_limiter"
+	slidingWindowCounterRepo "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter"
 )
 
 const (
@@ -93,7 +93,6 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	go func() {
 		defer w.Done()
 		if err := s.repo.RemoveExpiredWindowSlice(ctx, ip, part, s.params.WindowTime); err != nil {
-			utils.ShowErrorLogs(fmt.Errorf("remove expired window err %v", err))
 			errChan <- err
 		}
 	}()
@@ -101,7 +100,6 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	go func() {
 		defer w.Done()
 		if err := s.repo.IncreaseCurrentWindowSlice(ctx, ip, part); err != nil {
-			utils.ShowErrorLogs(fmt.Errorf("increase current window slice err %v", err))
 			errChan <- err
 		}
 	}()
@@ -140,14 +138,14 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 	}
 
 	currPart := s.getCurrentPart()
-	log.Log("current part ", currPart)
+
 	cumulativeReq, err := s.increaseAndGetTotalRequestInWindow(ctx, reqIP, currPart)
 	if err != nil {
 		err = s.getFormattedError(ctx, err)
 		go s.errorPublisher.SendError(err)
 		return false
 	}
-	log.Log("done increase and get total request in window")
+
 	if cumulativeReq > s.params.MaxRequestInWindow {
 		return false
 	}

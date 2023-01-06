@@ -2,11 +2,13 @@ package telegram
 
 import (
 	"fmt"
-	"github.com/ghnexpress/traefik-ratelimit/log"
-	"github.com/ghnexpress/traefik-ratelimit/utils"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/ghnexpress/traefik-ratelimit/config"
+	"github.com/ghnexpress/traefik-ratelimit/log"
+	"github.com/ghnexpress/traefik-ratelimit/utils"
 )
 
 type TelegramService struct {
@@ -15,8 +17,8 @@ type TelegramService struct {
 	chatID string
 }
 
-func NewTelegramService(host, token, chatID string) *TelegramService {
-	return &TelegramService{host: host, token: token, chatID: chatID}
+func NewTelegramService(cfg config.TelegramConfig) *TelegramService {
+	return &TelegramService{host: cfg.Host, token: cfg.Token, chatID: cfg.ChatID}
 }
 
 func (s *TelegramService) SendError(errToSend error) error {

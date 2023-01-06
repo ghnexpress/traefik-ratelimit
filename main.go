@@ -4,42 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/ghnexpress/traefik-ratelimit/config"
 	"github.com/ghnexpress/traefik-ratelimit/log"
 	"github.com/ghnexpress/traefik-ratelimit/rate_limiter"
-	"github.com/ghnexpress/traefik-ratelimit/rate_limiter/sliding_window_counter"
+	slidingWindowCounter "github.com/ghnexpress/traefik-ratelimit/rate_limiter/sliding_window_counter"
 	slidingWindowCounterLocalCache "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/local_cache"
 	slidingWindowCounterMemcached "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/memcached"
 	"github.com/ghnexpress/traefik-ratelimit/telegram"
 	simple_local_cache "github.com/ghnexpress/traefik-ratelimit/utils/simple_cache"
-	"net/http"
 )
 
 const xRequestIDHeader = "X-Request-Id"
 
-type MemcachedConfig struct {
-	Address  string `json:"address,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-type TelegramConfig struct {
-	Host   string `json:"host,omitempty"`
-	ChatID string `json:"chatId,omitempty"`
-	Token  string `json:"token,omitempty"`
-}
-
-// Config holds the plugin configuration.
-type Config struct {
-	MaxRequestInWindow int             `json:"maxRequestInWindow,omitempty"`
-	WindowTime         int             `json:"windowTime,omitempty"`
-	Env                string          `json:"env,omitempty"`
-	Memcached          MemcachedConfig `json:"memcached"`
-	Telegram           TelegramConfig  `json:"telegram"`
-}
-
 // CreateConfig creates and initializes the plugin configuration.
-func CreateConfig() *Config {
-	return &Config{Memcached: MemcachedConfig{}}
+func CreateConfig() *config.Config {
+	return &config.Config{Memcached: config.MemcachedConfig{}}
 }
 
 type RateLimit struct {
@@ -48,21 +30,21 @@ type RateLimit struct {
 	rate                  int
 	memcachedRateLimiter  rate_limiter.RateLimiter
 	localCacheRateLimiter rate_limiter.RateLimiter
-	config                *Config
+	config                *config.Config
 }
 
 // New created a new plugin.
-func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
+func New(_ context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
 	log.Log(fmt.Sprintf("config %v", config))
 	memcachedInstance := memcache.New(config.Memcached.Address)
 	localCache := simple_local_cache.NewSimpleLocalCache()
 
-	telegramService := telegram.NewTelegramService(config.Telegram.Host, config.Telegram.Token, config.Telegram.ChatID)
+	telegramService := telegram.NewTelegramService(config.Telegram)
 	slidingWindowCounterMemcachedRepository := slidingWindowCounterMemcached.NewSlidingWindowCounterMemcachedRepository(memcachedInstance)
-	memcachedRateLimiter := sliding_window_counter.NewSlidingWindowCounter(
+	memcachedRateLimiter := slidingWindowCounter.NewSlidingWindowCounter(
 		slidingWindowCounterMemcachedRepository,
 		telegramService,
-		sliding_window_counter.SlidingWindowCounterParam{
+		slidingWindowCounter.SlidingWindowCounterParam{
 			MaxRequestInWindow: config.MaxRequestInWindow,
 			WindowTime:         config.WindowTime,
 		},
@@ -71,10 +53,10 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 	slidingWindowCounterLocalCachedRepository := slidingWindowCounterLocalCache.NewSlidingWindowCounterLocalCacheRepository(
 		localCache,
 	)
-	localCacheRateLimiter := sliding_window_counter.NewSlidingWindowCounter(
+	localCacheRateLimiter := slidingWindowCounter.NewSlidingWindowCounter(
 		slidingWindowCounterLocalCachedRepository,
 		telegramService,
-		sliding_window_counter.SlidingWindowCounterParam{
+		slidingWindowCounter.SlidingWindowCounterParam{
 			MaxRequestInWindow: config.MaxRequestInWindow,
 			WindowTime:         config.WindowTime,
 		})
@@ -90,9 +72,9 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 
 func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	encoder := json.NewEncoder(rw)
-	reqCtx := req.Context()
 	requestID := req.Header.Get(xRequestIDHeader)
-	log.Log("request id", requestID)
+
+	reqCtx := req.Context()
 	reqCtx = context.WithValue(reqCtx, "requestID", requestID)
 	reqCtx = context.WithValue(reqCtx, "env", r.config.Env)
 
