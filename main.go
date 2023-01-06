@@ -10,25 +10,36 @@ import (
 	"github.com/ghnexpress/traefik-ratelimit/rate_limiter/sliding_window_counter"
 	slidingWindowCounterLocalCache "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/local_cache"
 	slidingWindowCounterMemcached "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/memcached"
+	"github.com/ghnexpress/traefik-ratelimit/telegram"
 	simple_local_cache "github.com/ghnexpress/traefik-ratelimit/utils/simple_cache"
 	"net/http"
 )
+
+const xRequestIDHeader = "X-Request-Id"
 
 type MemcachedConfig struct {
 	Address  string `json:"address,omitempty"`
 	Password string `json:"password,omitempty"`
 }
 
+type TelegramConfig struct {
+	Host   string `json:"host,omitempty"`
+	ChatID string `json:"chatId,omitempty"`
+	Token  string `json:"token,omitempty"`
+}
+
 // Config holds the plugin configuration.
 type Config struct {
 	MaxRequestInWindow int             `json:"maxRequestInWindow,omitempty"`
 	WindowTime         int             `json:"windowTime,omitempty"`
-	MemcachedConfig    MemcachedConfig `json:"memcachedConfig"`
+	Env                string          `json:"env,omitempty"`
+	Memcached          MemcachedConfig `json:"memcached"`
+	Telegram           TelegramConfig  `json:"telegram"`
 }
 
 // CreateConfig creates and initializes the plugin configuration.
 func CreateConfig() *Config {
-	return &Config{MemcachedConfig: MemcachedConfig{}}
+	return &Config{Memcached: MemcachedConfig{}}
 }
 
 type RateLimit struct {
@@ -43,13 +54,14 @@ type RateLimit struct {
 // New created a new plugin.
 func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
 	log.Log(fmt.Sprintf("config %v", config))
-	memcachedInstance := memcache.New(config.MemcachedConfig.Address)
+	memcachedInstance := memcache.New(config.Memcached.Address)
 	localCache := simple_local_cache.NewSimpleLocalCache()
-	log.Log(localCache)
 
+	telegramService := telegram.NewTelegramService(config.Telegram.Host, config.Telegram.Token, config.Telegram.ChatID)
 	slidingWindowCounterMemcachedRepository := slidingWindowCounterMemcached.NewSlidingWindowCounterMemcachedRepository(memcachedInstance)
 	memcachedRateLimiter := sliding_window_counter.NewSlidingWindowCounter(
 		slidingWindowCounterMemcachedRepository,
+		telegramService,
 		sliding_window_counter.SlidingWindowCounterParam{
 			MaxRequestInWindow: config.MaxRequestInWindow,
 			WindowTime:         config.WindowTime,
@@ -61,12 +73,12 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 	)
 	localCacheRateLimiter := sliding_window_counter.NewSlidingWindowCounter(
 		slidingWindowCounterLocalCachedRepository,
+		telegramService,
 		sliding_window_counter.SlidingWindowCounterParam{
 			MaxRequestInWindow: config.MaxRequestInWindow,
 			WindowTime:         config.WindowTime,
 		})
 
-	log.Log(fmt.Sprintf("%v", slidingWindowCounterMemcachedRepository))
 	return &RateLimit{
 		name:                  name,
 		next:                  next,
@@ -79,15 +91,18 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	encoder := json.NewEncoder(rw)
 	reqCtx := req.Context()
+	requestID := req.Header.Get(xRequestIDHeader)
+	log.Log("request id", requestID)
+	reqCtx = context.WithValue(reqCtx, "requestID", requestID)
+	reqCtx = context.WithValue(reqCtx, "env", r.config.Env)
+
 	if r.localCacheRateLimiter.IsAllowed(reqCtx, req) {
-		log.Log("passed local checking")
 		if r.memcachedRateLimiter.IsAllowed(reqCtx, req) {
-			log.Log("passed memcached checking")
 			r.next.ServeHTTP(rw, req)
 			return
 		}
 	}
-	log.Log("failed local checking")
+
 	rw.WriteHeader(http.StatusTooManyRequests)
 	encoder.Encode(map[string]any{"status_code": http.StatusTooManyRequests, "message": "rate limit exceeded, try again later"})
 	return

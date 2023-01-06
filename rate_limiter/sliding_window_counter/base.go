@@ -40,12 +40,26 @@ type SlidingWindowCounterParam struct {
 }
 
 type slidingWindowCounter struct {
-	repo   slidingWindowCounterRepo.Repository
-	params SlidingWindowCounterParam
+	repo           slidingWindowCounterRepo.Repository
+	errorPublisher log.ErrorPublisher
+	params         SlidingWindowCounterParam
 }
 
-func NewSlidingWindowCounter(repo slidingWindowCounterRepo.Repository, params SlidingWindowCounterParam) rate_limiter.RateLimiter {
-	return &slidingWindowCounter{repo: repo, params: params}
+func NewSlidingWindowCounter(repo slidingWindowCounterRepo.Repository, errorPublisher log.ErrorPublisher, params SlidingWindowCounterParam) rate_limiter.RateLimiter {
+	return &slidingWindowCounter{repo: repo, errorPublisher: errorPublisher, params: params}
+}
+
+func (s *slidingWindowCounter) getFormattedError(ctx context.Context, err error) error {
+	env := "dev"
+	if value, ok := ctx.Value("env").(string); ok {
+		env = value
+	}
+	requestID := ""
+	if value, ok := ctx.Value("requestID").(string); ok {
+		requestID = value
+	}
+
+	return fmt.Errorf("[%s][rate-limiter-middleware-plugin]\nRequestID: %s\n%s", env, requestID, err.Error())
 }
 
 func (s *slidingWindowCounter) getCurrentPart() int {
@@ -68,6 +82,8 @@ func (s *slidingWindowCounter) isIPExist(ctx context.Context, ip string) bool {
 func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Context, ip string, part int) (cumulativeReq int, err error) {
 	defer func() {
 		if err := recover(); err != nil {
+			errRes := s.getFormattedError(ctx, err.(error))
+			go s.errorPublisher.SendError(errRes)
 			log.Log(err)
 		}
 	}()
@@ -76,28 +92,22 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	w.Add(2)
 	go func() {
 		defer w.Done()
-		log.Log("remove expired window start")
 		if err := s.repo.RemoveExpiredWindowSlice(ctx, ip, part, s.params.WindowTime); err != nil {
 			utils.ShowErrorLogs(fmt.Errorf("remove expired window err %v", err))
 			errChan <- err
 		}
-		log.Log("remove expired window end")
 	}()
 
 	go func() {
 		defer w.Done()
-		log.Log("increase current window slice start")
 		if err := s.repo.IncreaseCurrentWindowSlice(ctx, ip, part); err != nil {
 			utils.ShowErrorLogs(fmt.Errorf("increase current window slice err %v", err))
 			errChan <- err
 		}
-		log.Log("increase current window slice end")
 	}()
 
 	w.Wait()
-	log.Log("close err chan")
 	close(errChan)
-	log.Log("close err chan done")
 	// 2 lines below are important, if change this to below code can lead to panic
 	// if err = <-errChan; err != nil {
 	//		return 0, err
@@ -105,9 +115,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	if err := <-errChan; err != nil {
 		return 0, err
 	}
-	log.Log("get all request count start")
 	cumulativeReq, err = s.repo.GetAllRequestCountCurrentWindow(ctx, ip)
-	log.Log("all request cumulative", cumulativeReq, err)
 	if err != nil {
 		return 0, err
 	}
@@ -117,13 +125,16 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request) bool {
 	defer func() {
 		if err := recover(); err != nil {
+			errRes := s.getFormattedError(ctx, err.(error))
+			go s.errorPublisher.SendError(errRes)
 			log.Log(err)
 		}
 	}()
 	reqIP := getIp(req)
 	if !s.isIPExist(ctx, reqIP) {
 		if err := s.repo.AddNewIP(ctx, reqIP); err != nil {
-			utils.ShowErrorLogs(err)
+			err = s.getFormattedError(ctx, err)
+			go s.errorPublisher.SendError(err)
 			return false
 		}
 	}
@@ -132,7 +143,8 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 	log.Log("current part ", currPart)
 	cumulativeReq, err := s.increaseAndGetTotalRequestInWindow(ctx, reqIP, currPart)
 	if err != nil {
-		utils.ShowErrorLogs(err)
+		err = s.getFormattedError(ctx, err)
+		go s.errorPublisher.SendError(err)
 		return false
 	}
 	log.Log("done increase and get total request in window")
