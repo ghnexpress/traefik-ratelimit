@@ -49,7 +49,7 @@ func NewSlidingWindowCounter(repo slidingWindowCounterRepo.Repository, errorPubl
 	return &slidingWindowCounter{repo: repo, errorPublisher: errorPublisher, params: params}
 }
 
-func (s *slidingWindowCounter) getFormattedError(ctx context.Context, err error) error {
+func (s *slidingWindowCounter) getFormattedError(ctx context.Context, err error, extra string) error {
 	env := "dev"
 	if value, ok := ctx.Value("env").(string); ok {
 		env = value
@@ -58,8 +58,7 @@ func (s *slidingWindowCounter) getFormattedError(ctx context.Context, err error)
 	if value, ok := ctx.Value("requestID").(string); ok {
 		requestID = value
 	}
-
-	return fmt.Errorf("[%s][rate-limiter-middleware-plugin]\nRequestID: %s\n%s", env, requestID, err.Error())
+	return fmt.Errorf("[%s][rate-limiter-middleware-plugin] %s \nRequestID: %s\n%s", env, extra, requestID, err.Error())
 }
 
 func (s *slidingWindowCounter) getCurrentPart() int {
@@ -82,7 +81,7 @@ func (s *slidingWindowCounter) isIPExist(ctx context.Context, ip string) bool {
 func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Context, ip string, part int) (cumulativeReq int, err error) {
 	defer func() {
 		if err := recover(); err != nil {
-			errRes := s.getFormattedError(ctx, err.(error))
+			errRes := s.getFormattedError(ctx, err.(error), "")
 			go s.errorPublisher.SendError(errRes)
 			log.Log(err)
 		}
@@ -123,7 +122,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request) bool {
 	defer func() {
 		if err := recover(); err != nil {
-			errRes := s.getFormattedError(ctx, err.(error))
+			errRes := s.getFormattedError(ctx, err.(error), "")
 			go s.errorPublisher.SendError(errRes)
 			log.Log(err)
 		}
@@ -131,7 +130,7 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 	reqIP := getIp(req)
 	if !s.isIPExist(ctx, reqIP) {
 		if err := s.repo.AddNewIP(ctx, reqIP); err != nil {
-			err = s.getFormattedError(ctx, err)
+			err = s.getFormattedError(ctx, err, "add new ip error")
 			go s.errorPublisher.SendError(err)
 			return false
 		}
@@ -141,7 +140,7 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 
 	cumulativeReq, err := s.increaseAndGetTotalRequestInWindow(ctx, reqIP, currPart)
 	if err != nil {
-		err = s.getFormattedError(ctx, err)
+		err = s.getFormattedError(ctx, err, "increase and get total request in window")
 		go s.errorPublisher.SendError(err)
 		return false
 	}
