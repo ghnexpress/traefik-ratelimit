@@ -146,9 +146,10 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 		go s.errorPublisher.SendError(err)
 		return false
 	}
-
+	go s.errorPublisher.SendError(fmt.Errorf("num of request %d", cumulativeReq))
 	if cumulativeReq > s.params.MaxRequestInWindow {
 		return false
 	}
+
 	return true
 }

@@ -84,7 +84,7 @@ func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-
+	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusTooManyRequests)
 	encoder.Encode(map[string]any{"status_code": http.StatusTooManyRequests, "message": "rate limit exceeded, try again later"})
 	return

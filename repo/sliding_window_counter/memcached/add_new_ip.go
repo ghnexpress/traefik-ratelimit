@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/ghnexpress/traefik-ratelimit/log"
 )
 
 func (r *memcachedRepository) AddNewIP(ctx context.Context, ip string) error {
@@ -12,7 +11,6 @@ func (r *memcachedRepository) AddNewIP(ctx context.Context, ip string) error {
 	if err != nil {
 		return err
 	}
-	log.Log(body)
 	return r.Memcached.Set(&memcache.Item{
 		Key:   ip,
 		Value: body,

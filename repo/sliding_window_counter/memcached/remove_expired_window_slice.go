@@ -3,7 +3,6 @@ package memcached
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
 )
 
@@ -28,7 +27,7 @@ func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip s
 		if len(partToBeEvicted) < 0 {
 			return nil
 		}
-		r.ErrPub.SendError(fmt.Errorf("evicted part %v", partToBeEvicted))
+		//r.ErrPub.SendError(fmt.Errorf("evicted part %v", partToBeEvicted))
 
 		for _, part := range partToBeEvicted {
 			delete(allReqCount, part)
