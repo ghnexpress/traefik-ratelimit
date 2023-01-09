@@ -142,7 +142,7 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 
 	cumulativeReq, err := s.increaseAndGetTotalRequestInWindow(ctx, reqIP, currPart)
 	if err != nil {
-		err = s.getFormattedError(ctx, err, "increase and get total request in window")
+		err = s.getFormattedError(ctx, err, fmt.Sprintf("%s increase and get total request in window", reqIP))
 		go s.errorPublisher.SendError(err)
 		return false
 	}
