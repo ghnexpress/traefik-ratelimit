@@ -40,7 +40,7 @@ func New(_ context.Context, next http.Handler, config *config.Config, name strin
 	localCache := simple_local_cache.NewSimpleLocalCache()
 
 	telegramService := telegram.NewTelegramService(config.Telegram)
-	slidingWindowCounterMemcachedRepository := slidingWindowCounterMemcached.NewSlidingWindowCounterMemcachedRepository(memcachedInstance)
+	slidingWindowCounterMemcachedRepository := slidingWindowCounterMemcached.NewSlidingWindowCounterMemcachedRepository(memcachedInstance, telegramService)
 	memcachedRateLimiter := slidingWindowCounter.NewSlidingWindowCounter(
 		slidingWindowCounterMemcachedRepository,
 		telegramService,

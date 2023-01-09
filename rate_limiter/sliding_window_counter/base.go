@@ -82,6 +82,8 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	defer func() {
 		if err := recover(); err != nil {
 			errRes := s.getFormattedError(ctx, err.(error), "")
+
+			log.Log("abc", err)
 			go s.errorPublisher.SendError(errRes)
 			log.Log(err)
 		}
@@ -92,14 +94,14 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	go func() {
 		defer w.Done()
 		if err := s.repo.RemoveExpiredWindowSlice(ctx, ip, part, s.params.WindowTime); err != nil {
-			errChan <- err
+			errChan <- fmt.Errorf("remove expired window slice err %v - current part %d", err, part)
 		}
 	}()
 
 	go func() {
 		defer w.Done()
 		if err := s.repo.IncreaseCurrentWindowSlice(ctx, ip, part); err != nil {
-			errChan <- err
+			errChan <- fmt.Errorf("increase current window slice err %v - current part %d", err, part)
 		}
 	}()
 
@@ -114,7 +116,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	}
 	cumulativeReq, err = s.repo.GetAllRequestCountCurrentWindow(ctx, ip)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("get all request count of current window err %v", err)
 	}
 	return cumulativeReq, err
 }
