@@ -39,7 +39,7 @@ type RateLimit struct {
 func New(_ context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
 	log.Log(fmt.Sprintf("config %v", config))
 	memcachedInstance := memcache.New(config.Memcached.Address)
-	memcachedInstance.Timeout = 500 * time.Millisecond
+	memcachedInstance.Timeout = 1000 * time.Millisecond
 	localCache := simple_local_cache.NewSimpleLocalCache()
 
 	telegramService := telegram.NewTelegramService(config.Telegram)
