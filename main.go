@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ghnexpress/traefik-ratelimit/utils"
 	"net/http"
+	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/ghnexpress/traefik-ratelimit/config"
@@ -38,6 +39,7 @@ type RateLimit struct {
 func New(_ context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
 	log.Log(fmt.Sprintf("config %v", config))
 	memcachedInstance := memcache.New(config.Memcached.Address)
+	memcachedInstance.Timeout = 500 * time.Millisecond
 	localCache := simple_local_cache.NewSimpleLocalCache()
 
 	telegramService := telegram.NewTelegramService(config.Telegram)
