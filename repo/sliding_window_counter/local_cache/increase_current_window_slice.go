@@ -13,8 +13,8 @@ const (
 
 func (r *localCacheRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
 	var mu sync.RWMutex
-	mu.Lock()
-	defer mu.Unlock()
+	mu.RLock()
+	defer mu.RUnlock()
 	value, ok := r.LocalCache.Load(ip)
 	if !ok {
 		return fmt.Errorf("can't load data of ip %s %v", ip, value)
