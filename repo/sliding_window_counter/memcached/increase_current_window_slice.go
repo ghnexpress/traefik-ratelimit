@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/bradfitz/gomemcache/memcache"
+	"time"
 )
 
 const (
-	MaxRetries = 10
+	MaxRetries = 20
 )
 
 func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
@@ -27,6 +28,7 @@ func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip
 		}
 		if err = r.Memcached.CompareAndSwap(data); err != nil {
 			if err == memcache.ErrCASConflict {
+				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 			return err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/bradfitz/gomemcache/memcache"
+	"time"
 )
 
 func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip string, currSlice, windowTime int) (err error) {
@@ -39,6 +40,7 @@ func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip s
 
 		if err = r.Memcached.CompareAndSwap(data); err != nil {
 			if err == memcache.ErrCASConflict {
+				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 			return err
