@@ -72,7 +72,6 @@ func (s *slidingWindowCounter) getCurrentPart() int {
 func (s *slidingWindowCounter) isIPExist(ctx context.Context, ip string) bool {
 	_, err := s.repo.GetRequestCountByIP(ctx, ip)
 	if err != nil {
-		log.Log("err ", err)
 		return false
 	}
 	return true
@@ -83,9 +82,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 		if err := recover(); err != nil {
 			errRes := s.getFormattedError(ctx, err.(error), "")
 
-			log.Log("abc", err)
 			go s.errorPublisher.SendError(errRes)
-			log.Log(err)
 		}
 	}()
 	errChan := make(chan error, 2)
@@ -146,7 +143,7 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 		go s.errorPublisher.SendError(err)
 		return false
 	}
-	go s.errorPublisher.SendError(fmt.Errorf("num of request %d", cumulativeReq))
+
 	if cumulativeReq > s.params.MaxRequestInWindow {
 		return false
 	}

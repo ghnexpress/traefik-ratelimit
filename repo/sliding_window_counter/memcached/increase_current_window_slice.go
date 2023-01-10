@@ -12,9 +12,10 @@ const (
 
 func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
 	for i := 0; i < MaxRetries; i++ {
-		data, err := r.Memcached.Get(ip)
+		var data *memcache.Item
+		data, err = r.Memcached.Get(ip)
 		if err != nil {
-			return err
+			continue
 		}
 		userRequestCount := map[int]int{}
 		if err = json.Unmarshal(data.Value, &userRequestCount); err != nil {

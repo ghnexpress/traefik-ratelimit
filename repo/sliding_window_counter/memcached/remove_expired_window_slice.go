@@ -12,7 +12,7 @@ func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip s
 
 	for i := 0; i < MaxRetries; i++ {
 		if data, err = r.Memcached.Get(ip); err != nil {
-			return err
+			continue
 		}
 
 		err = json.Unmarshal(data.Value, &allReqCount)
