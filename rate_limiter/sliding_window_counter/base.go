@@ -3,10 +3,10 @@ package sliding_window_counter
 import (
 	"context"
 	"fmt"
+	"github.com/ghnexpress/traefik-ratelimit/utils"
 	"math"
-	"net"
 	"net/http"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -18,21 +18,6 @@ import (
 const (
 	seperatedPart = 60 // should be less than 100
 )
-
-func getIp(req *http.Request) string {
-	if ip := req.Header.Get("X-Forwarded-For"); ip != "" {
-		i := strings.IndexAny(ip, ",")
-		if i > 0 {
-			return strings.TrimSpace(ip[:i])
-		}
-		return ip
-	}
-	if ip := req.Header.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-	ra, _, _ := net.SplitHostPort(req.RemoteAddr)
-	return ra
-}
 
 type SlidingWindowCounterParam struct {
 	MaxRequestInWindow int
@@ -118,7 +103,7 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	return cumulativeReq, err
 }
 
-func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request) bool {
+func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request, rw http.ResponseWriter) bool {
 	defer func() {
 		if err := recover(); err != nil {
 			errRes := s.getFormattedError(ctx, err.(error), "")
@@ -126,7 +111,7 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 			log.Log(err)
 		}
 	}()
-	reqIP := getIp(req)
+	reqIP := utils.GetIp(req)
 	if !s.isIPExist(ctx, reqIP) {
 		if err := s.repo.AddNewIP(ctx, reqIP); err != nil {
 			err = s.getFormattedError(ctx, err, "add new ip error")
@@ -143,7 +128,7 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request)
 		go s.errorPublisher.SendError(err)
 		return false
 	}
-
+	rw.Header().Add("Num-request", strconv.Itoa(cumulativeReq))
 	if cumulativeReq > s.params.MaxRequestInWindow {
 		return false
 	}

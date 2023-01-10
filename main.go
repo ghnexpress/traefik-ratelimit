@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ghnexpress/traefik-ratelimit/utils"
 	"net/http"
 
 	"github.com/bradfitz/gomemcache/memcache"
@@ -78,8 +79,9 @@ func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	reqCtx = context.WithValue(reqCtx, "requestID", requestID)
 	reqCtx = context.WithValue(reqCtx, "env", r.config.Env)
 
-	if r.localCacheRateLimiter.IsAllowed(reqCtx, req) {
-		if r.memcachedRateLimiter.IsAllowed(reqCtx, req) {
+	rw.Header().Add("Request-Ip", utils.GetIp(req))
+	if r.localCacheRateLimiter.IsAllowed(reqCtx, req, rw) {
+		if r.memcachedRateLimiter.IsAllowed(reqCtx, req, rw) {
 			r.next.ServeHTTP(rw, req)
 			return
 		}
