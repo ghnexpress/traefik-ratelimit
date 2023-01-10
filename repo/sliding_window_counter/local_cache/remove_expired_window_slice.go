@@ -8,7 +8,7 @@ import (
 )
 
 func (r *localCacheRepository) RemoveExpiredWindowSlice(ctx context.Context, ip string, currSlice, windowTime int) (err error) {
-	var mu sync.Mutex
+	var mu sync.RWMutex
 	mu.Lock()
 	defer mu.Unlock()
 	value, ok := r.LocalCache.Load(ip)

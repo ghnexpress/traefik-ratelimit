@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/bradfitz/gomemcache/memcache"
+	"time"
 )
 
 const (
@@ -25,18 +26,11 @@ func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip
 		if data.Value, err = json.Marshal(userRequestCount); err != nil {
 			return err
 		}
-		//if err = r.Memcached.CompareAndSwap(data); err != nil {
-		//	if err == memcache.ErrCASConflict {
-		//		time.Sleep(100 * time.Millisecond)
-		//		continue
-		//	}
-		//	return err
-		//}
-		if err = r.Memcached.Set(data); err != nil {
-			//if err == memcache.ErrCASConflict {
-			//	time.Sleep(100 * time.Millisecond)
-			//	continue
-			//}
+		if err = r.Memcached.CompareAndSwap(data); err != nil {
+			if err == memcache.ErrCASConflict {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
 			return err
 		}
 		break

@@ -12,7 +12,7 @@ const (
 )
 
 func (r *localCacheRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
-	var mu sync.Mutex
+	var mu sync.RWMutex
 	mu.Lock()
 	defer mu.Unlock()
 	value, ok := r.LocalCache.Load(ip)
