@@ -3,6 +3,7 @@ package memcached
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
 	"time"
 )
@@ -43,7 +44,7 @@ func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip s
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
-			return err
+			return fmt.Errorf("compare and swap %v", err)
 		}
 		break
 	}
