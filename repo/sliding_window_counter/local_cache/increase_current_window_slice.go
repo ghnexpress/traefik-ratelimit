@@ -2,9 +2,6 @@ package local_cache
 
 import (
 	"context"
-	"fmt"
-	"reflect"
-	"sync"
 )
 
 const (
@@ -12,18 +9,10 @@ const (
 )
 
 func (r *localCacheRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
-	var mu sync.RWMutex
-	mu.RLock()
-	defer mu.RUnlock()
-	value, ok := r.LocalCache.Load(ip)
-	if !ok {
-		return fmt.Errorf("can't load data of ip %s %v", ip, value)
-	}
-	userRequestCount, ok := value.(map[int]int)
-	if !ok {
-		return fmt.Errorf("can't cast value %v type %s to map[int]int to load data of ip %s", userRequestCount, reflect.TypeOf(value), ip)
-	}
-	userRequestCount[part] += 1
-	r.LocalCache.Store(ip, userRequestCount)
+	r.LocalCache.ReadModifyStore(ip, func(userRequestCount map[int]int, part int) map[int]int {
+		userRequestCount[part] += 1
+		return userRequestCount
+	}, part)
+
 	return nil
 }
