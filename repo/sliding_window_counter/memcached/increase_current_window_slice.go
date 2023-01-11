@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
+	"math/rand"
 	"time"
 )
 
@@ -13,8 +14,10 @@ const (
 )
 
 func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
+	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < MaxRetries; i++ {
 		var data *memcache.Item
+		duration := 100 * time.Millisecond
 		data, err = r.Memcached.Get(ip)
 		if err != nil {
 			continue
@@ -29,7 +32,8 @@ func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip
 		}
 		if err = r.Memcached.CompareAndSwap(data); err != nil {
 			if err == memcache.ErrCASConflict {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(duration)
+				duration = time.Duration(float64(duration) * (rand.Float64() + 1))
 				continue
 			}
 			return fmt.Errorf("compare and swap %v", err)

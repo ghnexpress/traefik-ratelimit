@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
+	"math/rand"
 	"time"
 )
 
 func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip string, currSlice, windowTime int) (err error) {
 	var data *memcache.Item
 	allReqCount := make(map[int]int, 0)
-
+	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < MaxRetries; i++ {
+		duration := 100 * time.Millisecond
 		if data, err = r.Memcached.Get(ip); err != nil {
 			continue
 		}
@@ -41,7 +43,8 @@ func (r *memcachedRepository) RemoveExpiredWindowSlice(ctx context.Context, ip s
 
 		if err = r.Memcached.CompareAndSwap(data); err != nil {
 			if err == memcache.ErrCASConflict {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(duration)
+				duration = time.Duration(float64(duration) * (rand.Float64() + 1))
 				continue
 			}
 			return fmt.Errorf("compare and swap %v", err)
