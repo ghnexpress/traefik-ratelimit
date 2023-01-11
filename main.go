@@ -4,10 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ghnexpress/traefik-ratelimit/utils"
-	"net/http"
-	"time"
-
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/ghnexpress/traefik-ratelimit/config"
 	"github.com/ghnexpress/traefik-ratelimit/log"
@@ -16,7 +12,9 @@ import (
 	slidingWindowCounterLocalCache "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/local_cache"
 	slidingWindowCounterMemcached "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/memcached"
 	"github.com/ghnexpress/traefik-ratelimit/telegram"
+	"github.com/ghnexpress/traefik-ratelimit/utils"
 	simple_local_cache "github.com/ghnexpress/traefik-ratelimit/utils/simple_cache"
+	"net/http"
 )
 
 const xRequestIDHeader = "X-Request-Id"
@@ -39,7 +37,7 @@ type RateLimit struct {
 func New(_ context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
 	log.Log(fmt.Sprintf("config %v", config))
 	memcachedInstance := memcache.New(config.Memcached.Address)
-	memcachedInstance.Timeout = 1000 * time.Millisecond
+	memcachedInstance.MaxIdleConns = 10
 	localCache := simple_local_cache.NewSimpleLocalCache()
 
 	telegramService := telegram.NewTelegramService(config.Telegram)
