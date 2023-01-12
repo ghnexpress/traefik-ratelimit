@@ -9,10 +9,11 @@ const (
 )
 
 func (r *localCacheRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
-	r.LocalCache.ReadModifyStore(ip, func(userRequestCount map[int]int, part int) map[int]int {
-		userRequestCount[part] += 1
+	r.LocalCache.ReadModifyStore(ip, func(userRequestCount map[int]int, param map[string]interface{}) map[int]int {
+		currPart := param["current_part"].(int)
+		userRequestCount[currPart] += 1
 		return userRequestCount
-	}, part)
+	}, map[string]interface{}{"current_part": part})
 
 	return nil
 }

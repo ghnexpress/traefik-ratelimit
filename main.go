@@ -12,9 +12,9 @@ import (
 	slidingWindowCounterLocalCache "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/local_cache"
 	slidingWindowCounterMemcached "github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter/memcached"
 	"github.com/ghnexpress/traefik-ratelimit/telegram"
-	"github.com/ghnexpress/traefik-ratelimit/utils"
 	simple_local_cache "github.com/ghnexpress/traefik-ratelimit/utils/simple_cache"
 	"net/http"
+	"time"
 )
 
 const xRequestIDHeader = "X-Request-Id"
@@ -37,7 +37,12 @@ type RateLimit struct {
 func New(_ context.Context, next http.Handler, config *config.Config, name string) (http.Handler, error) {
 	log.Log(fmt.Sprintf("config %v", config))
 	memcachedInstance := memcache.New(config.Memcached.Address)
-	memcachedInstance.MaxIdleConns = 10
+	if config.Memcached.Timeout > 0 {
+		memcachedInstance.Timeout = time.Duration(config.Memcached.Timeout) * time.Second
+	}
+	if config.Memcached.MaxIdleConnection > 0 {
+		memcachedInstance.MaxIdleConns = config.Memcached.MaxIdleConnection
+	}
 	localCache := simple_local_cache.NewSimpleLocalCache()
 
 	telegramService := telegram.NewTelegramService(config.Telegram)
@@ -79,7 +84,6 @@ func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	reqCtx = context.WithValue(reqCtx, "requestID", requestID)
 	reqCtx = context.WithValue(reqCtx, "env", r.config.Env)
 
-	rw.Header().Add("Request-Ip", utils.GetIp(req))
 	if r.localCacheRateLimiter.IsAllowed(reqCtx, req, rw) {
 		if r.memcachedRateLimiter.IsAllowed(reqCtx, req, rw) {
 			r.next.ServeHTTP(rw, req)
@@ -87,7 +91,6 @@ func (r *RateLimit) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	//if r.memcachedRateLimiter.IsAllowed(reqCtx, req, rw) {
 	//	r.next.ServeHTTP(rw, req)
 	//}
 	rw.Header().Set("Content-Type", "application/json")

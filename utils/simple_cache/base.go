@@ -24,7 +24,7 @@ func (c *Cache) Load(key string) (data map[int]int, ok bool) {
 	return
 }
 
-func (c *Cache) ReadModifyStore(key string, modifyFn func(map[int]int, int) map[int]int, param int) {
+func (c *Cache) ReadModifyStore(key string, modifyFn func(map[int]int, map[string]interface{}) map[int]int, param map[string]interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	data := c.Data[key]

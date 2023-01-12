@@ -5,7 +5,7 @@ import (
 )
 
 func (r *localCacheRepository) RemoveExpiredWindowSlice(ctx context.Context, ip string, currSlice, windowTime int) (err error) {
-	r.LocalCache.ReadModifyStore(ip, func(allReqCount map[int]int, part int) map[int]int {
+	r.LocalCache.ReadModifyStore(ip, func(allReqCount map[int]int, param map[string]interface{}) map[int]int {
 		partToBeEvicted := make([]int, 0)
 		for part, _ := range allReqCount {
 			if part < currSlice-windowTime {
@@ -21,6 +21,6 @@ func (r *localCacheRepository) RemoveExpiredWindowSlice(ctx context.Context, ip 
 			delete(allReqCount, part)
 		}
 		return allReqCount
-	}, 0)
+	}, nil)
 	return nil
 }

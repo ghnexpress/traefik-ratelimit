@@ -6,6 +6,10 @@ import (
 	"github.com/ghnexpress/traefik-ratelimit/repo/sliding_window_counter"
 )
 
+const (
+	MaxRetries = 20
+)
+
 type memcachedRepository struct {
 	Memcached *memcache.Client
 	ErrPub    log.ErrorPublisher

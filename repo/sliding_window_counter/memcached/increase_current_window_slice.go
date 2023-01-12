@@ -9,10 +9,6 @@ import (
 	"time"
 )
 
-const (
-	MaxRetries = 20
-)
-
 func (r *memcachedRepository) IncreaseCurrentWindowSlice(ctx context.Context, ip string, part int) (err error) {
 	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < MaxRetries; i++ {

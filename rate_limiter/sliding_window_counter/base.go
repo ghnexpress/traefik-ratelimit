@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	seperatedPart = 60 // should be less than 100
+	seperatedPart = 120
 )
 
 type SlidingWindowCounterParam struct {
@@ -66,7 +66,6 @@ func (s *slidingWindowCounter) increaseAndGetTotalRequestInWindow(ctx context.Co
 	defer func() {
 		if err := recover(); err != nil {
 			errRes := s.getFormattedError(ctx, err.(error), "")
-
 			go s.errorPublisher.SendError(errRes)
 		}
 	}()
@@ -128,7 +127,11 @@ func (s *slidingWindowCounter) IsAllowed(ctx context.Context, req *http.Request,
 		go s.errorPublisher.SendError(err)
 		return false
 	}
-	rw.Header().Add("Num-request", strconv.Itoa(cumulativeReq))
+
+	if val, ok := ctx.Value("env").(string); ok && val == "dev" {
+		rw.Header().Add("num-request", strconv.Itoa(cumulativeReq))
+	}
+
 	if cumulativeReq > s.params.MaxRequestInWindow {
 		return false
 	}

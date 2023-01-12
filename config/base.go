@@ -1,8 +1,10 @@
 package config
 
 type MemcachedConfig struct {
-	Address  string `json:"address,omitempty"`
-	Password string `json:"password,omitempty"`
+	Address           string `json:"address,omitempty"`
+	Password          string `json:"password,omitempty"`
+	Timeout           int    `json:"timeout,omitempty"`
+	MaxIdleConnection int    `json:"maxIdleConnection,omitempty"`
 }
 
 type TelegramConfig struct {
